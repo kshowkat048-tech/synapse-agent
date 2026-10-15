@@ -1,37 +1,43 @@
-import gradio as gr
-import os
+import streamlit as st
+
+# --- पेज कॉन्फ़िगरेशन ---
+st.set_page_config(
+    page_title="Synapse Deep-Swarm Master Agent",
+    page_icon="🤖",
+    layout="wide"
+)
 
 # --- 1. MULTI-API FAILOVER & ROUND-ROBIN POOL ---
+if "api_index" not in st.session_state:
+    st.session_state.api_index = 0
+
 API_KEY_POOL = [
     {"name": "Free API Provider 1 (`freellmapi.co` - Primary)", "status": "Active"},
     {"name": "Free API Provider 2 (Backup Pool A)", "status": "Standby"},
     {"name": "Free API Provider 3 (Backup Pool B)", "status": "Standby"}
 ]
 
-current_api_index = 0
-
 def get_active_api_key():
-    global current_api_index
-    return API_KEY_POOL[current_api_index]
+    return API_KEY_POOL[st.session_state.api_index]
 
 def switch_to_next_api():
-    global current_api_index
-    current_api_index = (current_api_index + 1) % len(API_KEY_POOL)
-    return API_KEY_POOL[current_api_index]
+    st.session_state.api_index = (st.session_state.api_index + 1) % len(API_KEY_POOL)
+    return API_KEY_POOL[st.session_state.api_index]
 
 
 # --- 2. LONG-TERM MEMORY ENGINE ---
-USER_LONG_TERM_MEMORY = {
-    "name": "اذان (Azaan)",
-    "location": "Pakistan",
-    "preferences": "Autonomous AI agents, media production, cybersecurity, trading, and app development.",
-    "history_log": []
-}
+if "user_memory" not in st.session_state:
+    st.session_state.user_memory = {
+        "name": "اذان (Azaan)",
+        "location": "Pakistan",
+        "preferences": "Autonomous AI agents, media production, cybersecurity, trading, and app development.",
+        "history_log": []
+    }
 
 def update_memory(prompt, response):
-    USER_LONG_TERM_MEMORY["history_log"].append({"user": prompt, "agent": response})
-    if len(USER_LONG_TERM_MEMORY["history_log"]) > 30:
-        USER_LONG_TERM_MEMORY["history_log"].pop(0)
+    st.session_state.user_memory["history_log"].append({"user": prompt, "agent": response})
+    if len(st.session_state.user_memory["history_log"]) > 30:
+        st.session_state.user_memory["history_log"].pop(0)
 
 
 # --- 3. MASTER ROUTER & ALL-IN-ONE ENGINE ROUTING ---
@@ -42,11 +48,12 @@ def master_agent_router(prompt, selected_engine, visual_style, framing_angle):
     # Auto-Failover System Simulation
     active_api = get_active_api_key()
     api_log = f"🔄 [API Failover Engine]: Active via {active_api['name']}."
-    if "error" in prompt.lower():
+    if "error" in prompt.lower() or "fail" in prompt.lower():
         next_api = switch_to_next_api()
         api_log += f" ⚠️ Primary limit hit! Switched automatically to: {next_api['name']}"
 
-    memory_context = f"🧠 [Long-Term Memory Active]: Recognized User [{USER_LONG_TERM_MEMORY['name']}] from [{USER_LONG_TERM_MEMORY['location']}]."
+    memory = st.session_state.user_memory
+    memory_context = f"🧠 [Long-Term Memory Active]: Recognized User [{memory['name']}] from [{memory['location']}]."
     response_log = f"{memory_context}\n{api_log}\n🟢 [Ruflo Swarm Router]: Task routed and initialized.\n"
     
     # Engine Selection Routing
@@ -80,11 +87,11 @@ def master_agent_router(prompt, selected_engine, visual_style, framing_angle):
         
     elif selected_engine == "Paperclip, Open Notebook & yt-dlp (Research Tools)":
         response_log += "📚 [Notebook & Media Fetcher]: Indexing documents & fetching media...\n"
-        output_content = "📥 आपके डॉक्यू्मेंट्स से चैट और मीडिया डाउनलोड टास्क सफलताપूर्वक पूरा हुआ।"
+        output_content = "📥 आपके डॉक्यू्मेंट्स से चैट और मीडिया डाउनलोड टास्क सफलतापूवर्क पूरा हुआ।"
         
     else:
         response_log += "🤖 [Standard Free LLM Pool]: Processing prompt with No AI Slop filter...\n"
-        output_content = f"✨ डायरेक्ट और क्लीन आउटपुट तैयार है (No AI Slop Active)।"
+        output_content = f"✨ डायरेक्ट और क्लीन आउटपुट तैयार है (No AI Slop Active) - '{prompt}'।"
 
     # Save to Long-Term Memory
     update_memory(prompt, output_content)
@@ -92,53 +99,60 @@ def master_agent_router(prompt, selected_engine, visual_style, framing_angle):
     return f"--- 🛠️ SYSTEM EXECUTION & FAILOVER LOGS ---\n{response_log}\n\n--- 🎯 FINAL OUTPUT ---\n{output_content}"
 
 
-# --- 4. GRADIO UI LAYOUT ---
-with gr.Blocks(theme=gr.themes.Soft()) as demo:
-    gr.Markdown("# 🚀 Synapse Deep-Swarm: One-of-a-Kind Autonomous Master AI Agent")
-    gr.Markdown("### 🧠 Long-Term Memory + 🔄 Multi-API Failover + 👻 Ghost Uncensored + 🎬 Complete GitHub Media & Dev Stack")
+# --- 4. STREAMLIT UI LAYOUT ---
+st.title("🚀 Synapse Deep-Swarm: Autonomous Master AI Agent")
+st.markdown("### 🧠 Long-Term Memory + 🔄 Multi-API Failover + 👻 Ghost Uncensored + 🎬 Complete Media & Dev Stack")
+st.divider()
+
+# लेआउट: दो कॉलम (बायां कॉलम इनपुट के लिए, दायां कॉलम आउटपुट/लॉग्स के लिए)
+col1, col2 = st.columns([1, 1], gap="medium")
+
+with col1:
+    st.subheader("⚙️ Agent Command & Controls")
+    prompt_input = st.text_area("एजेंट को हुक्म दें (Prompt / Command)", placeholder="यहाँ अपना हुक्म या टास्क लिखें...", height=130)
     
-    with gr.Row():
-        with gr.Column(scale=2):
-            prompt_input = gr.Textbox(label="एजेंट को हुक्म दें (Prompt / Command)", placeholder="यहाँ अपना हुक्म या टास्क लिखें...", lines=4)
-            
-            with gr.Row():
-                engine_dropdown = gr.Dropdown(
-                    choices=[
-                        "Standard Free LLM (Auto-Failover Pool)",
-                        "Ghost AI (Uncensored / No-Refusal)",
-                        "MiroFish & OpenMAIC (Multi-Agent Swarm)",
-                        "Strix & ASC (Cyber Security & APK Decompiler)",
-                        "Open-Generative-AI + ComfyUI (Media Suite)",
-                        "VoiceStudio, OmniVoice & HeyGem (Voice & Avatar)",
-                        "Vibe-Trading & Quant (Crypto/Forex Trading)",
-                        "BeyondSEO & Open SEO (Growth Analytics)",
-                        "Paperclip, Open Notebook & yt-dlp (Research Tools)"
-                    ],
-                    label="एजेंट / इंजन चुनें",
-                    value="Standard Free LLM (Auto-Failover Pool)"
-                )
-                style_dropdown = gr.Dropdown(
-                    choices=["Minimalism", "Cyberpunk", "Surreal", "Swiss", "Y2K", "Retro", "Pop Art", "Pixel Art", "Dark Cinematic"],
-                    label="विजुअल स्टाइल (20 Styles Library)",
-                    value="Cyberpunk"
-                )
-            
-            framing_radio = gr.Radio(
-                choices=["Front View (फ्रंट)", "Back View (बैक)", "Close-up View (क्लोज़-अप)", "3-Angle Combo Method"],
-                label="कैरेक्टर फ्रेमिंग मेथड",
-                value="3-Angle Combo Method"
-            )
-            
-            submit_btn = gr.Button("🚀 Run Synapse Swarm Agent", variant="primary")
-            
-        with gr.Column(scale=2):
-            output_box = gr.Textbox(label="एजेंट का रिजल्ट, मेमोरी और लाइव फेलओवर लॉग्स", lines=18)
-
-    submit_btn.click(
-        fn=master_agent_router,
-        inputs=[prompt_input, engine_dropdown, style_dropdown, framing_radio],
-        outputs=output_box
+    engine_dropdown = st.selectbox(
+        "एजेंट / इंजन चुनें",
+        [
+            "Standard Free LLM (Auto-Failover Pool)",
+            "Ghost AI (Uncensored / No-Refusal)",
+            "MiroFish & OpenMAIC (Multi-Agent Swarm)",
+            "Strix & ASC (Cyber Security & APK Decompiler)",
+            "Open-Generative-AI + ComfyUI (Media Suite)",
+            "VoiceStudio, OmniVoice & HeyGem (Voice & Avatar)",
+            "Vibe-Trading & Quant (Crypto/Forex Trading)",
+            "BeyondSEO & Open SEO (Growth Analytics)",
+            "Paperclip, Open Notebook & yt-dlp (Research Tools)"
+        ]
     )
+    
+    style_dropdown = st.selectbox(
+        "विजुअल स्टाइल (20 Styles Library)",
+        ["Minimalism", "Cyberpunk", "Surreal", "Swiss", "Y2K", "Retro", "Pop Art", "Pixel Art", "Dark Cinematic"]
+    )
+    
+    framing_radio = st.radio(
+        "कैरेक्टर फ्रेमिंग मेथड",
+        ["Front View (फ्रंट)", "Back View (बैक)", "Close-up View (क्लोज़-अप)", "3-Angle Combo Method"]
+    )
+    
+    submit_btn = st.button("🚀 Run Synapse Swarm Agent", type="primary", use_container_width=True)
 
-if __name__ == "__main__":
-    demo.launch()
+with col2:
+    st.subheader("📊 Execution Results & Live Logs")
+    
+    if submit_btn:
+        with st.spinner("🔄 Synapse Swarm Agents are processing your command..."):
+            result_output = master_agent_router(prompt_input, engine_dropdown, style_dropdown, framing_radio)
+            st.text_area("एजेंट का रिजल्ट, मेमोरी और लाइव फेलओवर लॉग्स", value=result_output, height=450)
+    else:
+        st.info("👈 बाएं पैनल में अपना प्रॉम्प्ट लिखकर 'Run Synapse Swarm Agent' बटन पर क्लिक करें।")
+
+# साइडबार में यूजर की जानकारी
+with st.sidebar:
+    st.header("👤 User Profile")
+    st.write(f"**Name:** {st.session_state.user_memory['name']}")
+    st.write(f"**Location:** {st.session_state.user_memory['location']}")
+    st.write(f"**Active API Pool Index:** {st.session_state.api_index + 1} / {len(API_KEY_POOL)}")
+    st.divider()
+    st.success("🟢 Streamlit Native UI Active & Ready")
